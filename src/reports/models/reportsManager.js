@@ -7,7 +7,8 @@ const databaseConnector = require('./databaseConnector'),
     configHandler = require('../../configManager/models/configHandler'),
     { JOB_TYPE_FUNCTIONAL_TEST } = require('../../common/consts'),
     constants = require('../utils/constants'),
-    reportsStatusCalculator = require('./reportStatusCalculator');
+    reportsStatusCalculator = require('./reportStatusCalculator'),
+    testsManager = require('../../tests/models/manager');
 
 const FINAL_REPORT_STATUSES_WITH_END_TIME = [constants.REPORT_FINISHED_STATUS, constants.REPORT_PARTIALLY_FINISHED_STATUS,
     constants.REPORT_FAILED_STATUS, constants.REPORT_ABORTED_STATUS];
@@ -64,10 +65,10 @@ module.exports.deleteReport = async (testId, reportId) => {
     await databaseConnector.deleteReport(testId, reportId);
 };
 
-module.exports.postReport = async (testId, reportBody) => {
-    const reportId = uuid.v4();
-    const startTime = new Date(Number(reportBody.start_time));
-    const job = await jobConnector.getJob(reportBody.job_id);
+module.exports.postReport = async(runId, testId, jobId, startTime) => {
+    const reportId = runId;
+    const test = await testsManager.getTest(testId);
+    const job = await jobConnector.getJob(jobId);
     const phase = '0';
 
     const testConfiguration = {
@@ -85,9 +86,9 @@ module.exports.postReport = async (testId, reportBody) => {
         testConfiguration.ramp_to = job.ramp_to;
     }
 
-    return databaseConnector.insertReport(reportId, testId, reportBody.revision_id, reportBody.job_id,
-        reportBody.test_type, phase, startTime, reportBody.test_name,
-        reportBody.test_description, JSON.stringify(testConfiguration), job.notes, Date.now(), false);
+    return databaseConnector.insertReport(reportId, testId, test.revision_id, jobId,
+        test.type, phase, startTime, test.name,
+        test.description, JSON.stringify(testConfiguration), job.notes, Date.now(), false);
 };
 
 module.exports.subscribeRunnerToReport = async function (testId, reportId, runnerId) {
